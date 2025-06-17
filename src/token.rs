@@ -1,8 +1,7 @@
 
 use std::fmt::{Debug, Display};
 
-#[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TokenType {
     Int,
     String,
@@ -31,6 +30,10 @@ impl Token {
             line_no: line,
             col_no: column
         }
+    }
+
+    pub fn pos(&self) -> String {
+        format!("[Line: {}, Column: {}]", self.line_no, self.col_no)
     }
 }
 

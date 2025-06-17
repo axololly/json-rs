@@ -1,23 +1,5 @@
-use std::fmt::Display;
 use crate::token::{Token, TokenType};
-use crate::utils::CharIter;
-
-struct Pos {
-    line: u32,
-    column: u32
-}
-
-impl Display for Pos {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(format!(
-            "[Line: {}, Column: {}]",
-            self.line,
-            self.column
-        ).as_str()).unwrap();
-
-        Ok(())
-    }
-}
+use crate::utils::{CharIter, Pos};
 
 fn try_get_string<'a>(chars: &mut CharIter, pos: &'a mut Pos) -> Token {
     // We know for sure that the first character is a double quote.
@@ -35,7 +17,7 @@ fn try_get_string<'a>(chars: &mut CharIter, pos: &'a mut Pos) -> Token {
             '\n' => panic!("Found newline when trying to parse string. {}", pos),
             
             // Escape whatever character is after.
-            // We will translate the string later when building the AST.
+            // TODO: Add 'try_convert_escape_sequence()'
             '\\' => {
                 result.push(ch);
 
