@@ -1,9 +1,59 @@
 use crate::token::{Token, TokenType};
 use crate::utils::{CharIter, Pos};
 
+fn try_convert_escape_sequence<'a>(chars: &mut CharIter, pos: &'a mut Pos) -> char {
+    let ch = match chars.next() {
+        Some(x) => x,
+        None => panic!("Found EOF when trying to parse escape sequence. {}", pos)
+    };
+
+    let converted = match ch {
+        // Literal characters we want to escape.
+        '"' | '\\' | '/' => ch,
+
+        // Special whitespace
+        'b' => '\x08',
+        'f' => '\x0c',
+
+        // Generic whitespace
+        'n' => '\n',
+        'r' => '\r',
+        't' => '\t',
+
+        // Unicode escape sequences
+        'u' => {
+            let mut hex = String::new();
+
+            for _ in 0..4 {
+                match chars.next() {
+                    Some(ch) => match ch {
+                        '0'..='9' | 'a'..='f' | 'A'..='F' => hex.push(ch),
+                        _ => panic!("Invalid character for unicode codepoint: {:?} {}", ch, pos)
+                    },
+                    None => panic!("Found EOF when trying to convert escape sequence. {}", pos)
+                };
+
+                pos.column += 3;
+            };
+
+            // We've already verified the hex digits with the match statement,
+            // so we can safely unwrap on both cases.
+            char::from_u32(u32::from_str_radix(hex.as_str(), 16).unwrap()).unwrap()
+        }
+
+        _ => panic!("Invalid escape sequence {:?} {}", ch, pos)
+    };
+
+    pos.column += 1;
+    
+    converted
+}
+
 fn try_get_string<'a>(chars: &mut CharIter, pos: &'a mut Pos) -> Token {
     // We know for sure that the first character is a double quote.
     let mut result = String::from(chars.next().unwrap());
+
+    let (line_no, col_no) = (pos.line, pos.column);
     
     loop {
         // Since an EOF results in an unterminated string literal,
@@ -19,24 +69,11 @@ fn try_get_string<'a>(chars: &mut CharIter, pos: &'a mut Pos) -> Token {
             // Escape whatever character is after.
             // TODO: Add 'try_convert_escape_sequence()'
             '\\' => {
-                result.push(ch);
-
                 chars.next();
 
                 pos.column += 1;
                 
-                // If we get a closing quote, we want to treat it as a literal quote.
-                // This is what we need to check for.
-                match chars.peek() {
-                    Some(next) => {
-                        result.push(next);
-                        chars.next();
-                        
-                        pos.column += 1;
-                    },
-
-                    None => panic!("Found EOF when trying to parse string. {}", pos)
-                }
+                result.push(try_convert_escape_sequence(chars, pos));
             },
 
             // The string is completed.
@@ -46,8 +83,8 @@ fn try_get_string<'a>(chars: &mut CharIter, pos: &'a mut Pos) -> Token {
                 return Token::new(
                     TokenType::String,
                     result,
-                    pos.line,
-                    pos.column
+                    line_no,
+                    col_no
                 );
             }
             
@@ -236,7 +273,7 @@ pub fn tokenise(text: &str) -> Vec<Token> {
             },
 
             // All other whitespace is irrelevant, so we can skip it.
-            ' ' | '\t' => {
+            ' ' | '\t' | '\r' => {
                 chars.next();
 
                 pos.column += 1;

@@ -214,7 +214,10 @@ pub fn parse(token_vec: &Vec<Token>) -> Node {
     };
 
     let out = match first.tok_type {
-        TT::Int | TT::Float | TT::String | TT::Name => parse_simple(first),
+        TT::Int | TT::Float | TT::String | TT::Name => {
+            tokens.next();
+            parse_simple(first)
+        }
         TT::LBrace => parse_object(&mut tokens),
         TT::LSqBrac => parse_array(&mut tokens),
         
